@@ -1,0 +1,94 @@
+#include <LiquidCrystal_I2C.h>
+#include <Wire.h>
+#include <Servo.h>
+
+// Initialize LCD with I2C address 0x27, 16 columns, and 2 rows
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+Servo myservo;
+
+// IR sensor pins
+int IR1 = 2; // Entry sensor
+int IR2 = 3; // Exit sensor
+
+// Total parking slots
+int Slot = 4;
+
+// Flags to track sensor triggers
+int flag1 = 0;
+int flag2 = 0;
+
+void setup() {
+    Serial.begin(9600);
+    lcd.init();             // Initialize the LCD
+    lcd.backlight();        // Turn on the LCD backlight
+
+    pinMode(IR1, INPUT);    // Set IR1 as input
+    pinMode(IR2, INPUT);    // Set IR2 as input
+
+    myservo.attach(4);      // Attach servo to pin 4
+    myservo.write(100);     // Set initial servo position (gate closed)
+
+    // Welcome message
+    lcd.setCursor(0, 0);
+    lcd.print("     ARDUINO    ");
+    lcd.setCursor(0, 1);
+    lcd.print(" PARKING SYSTEM ");
+    Serial.println("LCD:      ARDUINO");
+    Serial.println("LCD:  PARKING SYSTEM");
+    delay(2000);
+    lcd.clear();
+}
+
+void loop() {
+    // Check for vehicle entering
+    if (digitalRead(IR1) == LOW && flag1 == 0) {
+        if (Slot > 0) {
+            flag1 = 1; // Entry detected
+            if (flag2 == 0) { // Only decrement if not exiting
+                myservo.write(0); // Open the gate
+                Slot--;           // Decrease slot count
+            }
+        } else {
+            // Display "Parking Full" message
+            lcd.setCursor(0, 0);
+            lcd.print("    SORRY :(    ");
+            lcd.setCursor(0, 1);
+            lcd.print("  Parking Full  ");
+            Serial.println("LCD:     SORRY :(");
+            Serial.println("LCD:   Parking Full");
+            delay(3000);
+            lcd.clear();
+        }
+    }
+
+    // Check for vehicle exiting
+    if (digitalRead(IR2) == LOW && flag2 == 0) {
+        flag2 = 1; // Exit detected
+        if (flag1 == 0) { // Only increment if not entering
+            myservo.write(0); // Open the gate
+            Slot++;           // Increase slot count
+        }
+    }
+
+    // Close the gate if both flags are set
+    if (flag1 == 1 && flag2 == 1) {
+        delay(1000);       // Wait for the vehicle to pass
+        myservo.write(100); // Close the gate
+        flag1 = 0;          // Reset flags
+        flag2 = 0;
+    }
+
+    // Display the current status on the LCD
+    lcd.setCursor(0, 0);
+    lcd.print("    WELCOME!    ");
+    lcd.setCursor(0, 1);
+    lcd.print("Slot Left: ");
+    lcd.print(Slot);
+
+    // Print to Serial Monitor what the LCD is showing
+    Serial.println("LCD:    WELCOME!   ");
+    Serial.print("LCD: Slot Left: ");
+    Serial.println(Slot);
+
+    delay(500); // Small delay to prevent overwhelming the Serial Monitor
+}
